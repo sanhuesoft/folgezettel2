@@ -1,0 +1,9 @@
+{
+  "id": "folgezettel",
+  "name": "Folgezettel",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Muestra un esquema indentado de las notas de la raíz de la bóveda según su tren Folgezettel.",
+  "author": "Fabsanh",
+  "isDesktopOnly": false
+}

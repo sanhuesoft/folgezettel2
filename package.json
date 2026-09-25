@@ -1,0 +1,21 @@
+{
+  "name": "obsidian-folgezettel",
+  "version": "1.0.0",
+  "description": "Outline scheme for Folgezettel notes in Obsidian vault root",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "keywords": [],
+  "author": "Fabsanh",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "builtin-modules": "3.3.0",
+    "esbuild": "0.25.0",
+    "obsidian": "latest",
+    "tslib": "2.8.1",
+    "typescript": "5.7.3"
+  }
+}
