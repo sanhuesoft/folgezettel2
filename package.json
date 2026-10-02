@@ -1,6 +1,6 @@
 {
   "name": "obsidian-folgezettel",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Outline scheme for Folgezettel notes in Obsidian vault root",
   "main": "main.js",
   "scripts": {

@@ -1,9 +1,9 @@
 {
   "id": "folgezettel",
   "name": "Folgezettel",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "minAppVersion": "0.15.0",
-  "description": "Muestra un esquema indentado de las notas de la raíz de la bóveda según su tren Folgezettel.",
-  "author": "Fabsanh",
+  "description": "Native outline tree view and branching toolkit for Luhmann-style Folgezettel notes in Obsidian.",
+  "author": "Fabián Sanhueza Vásquez",
   "isDesktopOnly": false
 }

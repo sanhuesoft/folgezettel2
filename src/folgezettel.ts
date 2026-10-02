@@ -9,6 +9,18 @@ export interface FolgezettelNode {
 	depth: number;
 }
 
+export function isAncestorOf(parent: FolgezettelNode, child: FolgezettelNode): boolean {
+	if (parent.major !== child.major) return false;
+	if (parent.tokens.length >= child.tokens.length) return false;
+
+	for (let i = 0; i < parent.tokens.length; i++) {
+		if (parent.tokens[i] !== child.tokens[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
 export function parseFolgezettelId(idStr: string): { major: number; tokens: string[] } {
 	const dotIndex = idStr.indexOf(".");
 	if (dotIndex === -1) {
@@ -33,8 +45,13 @@ export function parseFolgezettelId(idStr: string): { major: number; tokens: stri
 
 export function parseFolgezettelFile(file: TFile): FolgezettelNode | null {
 	// Only files in vault root: file.parent is vault root ("/")
-	if (file.parent && file.parent.path !== "/" && file.parent.path !== "") {
-		return null;
+	if (file.parent) {
+		const isRoot = typeof (file.parent as any).isRoot === "function"
+			? (file.parent as any).isRoot()
+			: (file.parent.path === "/" || file.parent.path === "");
+		if (!isRoot) {
+			return null;
+		}
 	}
 
 	// Filename must start with a digit and be .md
@@ -143,4 +160,16 @@ export function getNextBranchId(parentId: string, existingIds: Set<string>): str
 	}
 
 	return `${parentId}a`;
+}
+
+export function getNextSiblingId(id: string): string | null {
+	// Only notes of base depth (e.g. "3.1", "7.6", "12.9") continue along the backbone: 7.6 -> 7.7
+	const match = id.match(/^([0-9]+)\.([0-9]+)$/);
+	if (!match) {
+		return null;
+	}
+
+	const major = parseInt(match[1], 10);
+	const minor = parseInt(match[2], 10);
+	return `${major}.${minor + 1}`;
 }
