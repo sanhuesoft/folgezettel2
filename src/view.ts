@@ -267,11 +267,85 @@ export class FolgezettelView extends ItemView {
 					cls: "folgezettel-thread-title-container",
 				});
 
+				// Thread ID badge at the left of the title (e.g. [12])
+				titleContainerEl.createSpan({
+					cls: "folgezettel-thread-id",
+					text: `[${node.major}]`,
+				});
+
 				// Heading element (shown when hasLabel is true)
 				const headingEl = titleContainerEl.createEl("div", {
 					cls: "folgezettel-thread-heading" + (hasLabel ? "" : " is-hidden"),
 					text: currentLabel,
 					attr: { title: t("clickToEditLabel") },
+				});
+
+				// Context menu on right click on thread header
+				this.registerDomEvent(threadHeaderEl, "contextmenu", (evt: MouseEvent) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+
+					const menu = new Menu();
+
+					// Find next available backbone note in this thread (major.1, major.2, etc.)
+					let nextBackboneNum = 1;
+					while (existingIds.has(`${node.major}.${nextBackboneNum}`)) {
+						nextBackboneNum++;
+					}
+					const nextBackboneId = `${node.major}.${nextBackboneNum}`;
+
+					// Option 1: Assign note to next backbone position
+					menu.addItem((item) => {
+						item.setTitle(t("assignNoteSiblingMenu", nextBackboneId))
+							.setIcon("arrow-down-right")
+							.onClick(() => {
+								assignBranchNote(this.app, nextBackboneId, () => this.renderOutline());
+							});
+					});
+
+					// Option 2: Continue thread with next backbone note
+					menu.addItem((item) => {
+						item.setTitle(t("continueThreadMenu", nextBackboneId))
+							.setIcon("arrow-down")
+							.onClick(() => {
+								createBranchNote(this.app, nextBackboneId, () => this.renderOutline());
+							});
+					});
+
+					// Option 3: Branch off root note (e.g. major.1) if it exists
+					const rootNode = nodes.find((n) => n.id.toLowerCase() === `${node.major}.1`);
+					if (rootNode) {
+						const rootBranchId = getNextBranchId(rootNode.id, existingIds);
+						menu.addSeparator();
+
+						menu.addItem((item) => {
+							item.setTitle(t("assignNoteBranchMenu", rootBranchId))
+								.setIcon("git-branch")
+								.onClick(() => {
+									assignBranchNote(this.app, rootBranchId, () => this.renderOutline());
+								});
+						});
+
+						menu.addItem((item) => {
+							item.setTitle(t("createNoteBranchMenu", rootBranchId))
+								.setIcon("plus")
+								.onClick(() => {
+									createBranchNote(this.app, rootBranchId, () => this.renderOutline());
+								});
+						});
+					}
+
+					// Option 4: Create next major thread
+					menu.addSeparator();
+					menu.addItem((item) => {
+						item.setTitle(t("cmdCreateNextThread", this.nextThreadId))
+							.setIcon("list-plus")
+							.onClick(() => {
+								this.createNewThread();
+							});
+					});
+
+					menu.showAtMouseEvent(evt);
 				});
 
 				// Input field element (shown when hasLabel is false, or during edit)
@@ -514,6 +588,23 @@ export class FolgezettelView extends ItemView {
 				});
 			});
 		}
+
+		// Footer: button to create new thread at the end of the list
+		if (!query) {
+			const footerEl = this.listContainerEl.createDiv({ cls: "folgezettel-footer" });
+			const newThreadBtn = footerEl.createEl("button", {
+				cls: "mod-cta folgezettel-new-thread-btn",
+			});
+			const iconSpan = newThreadBtn.createSpan({ cls: "folgezettel-btn-icon" });
+			setIcon(iconSpan, "plus");
+			newThreadBtn.createSpan({
+				text: t("createThreadBtnText", this.nextThreadId),
+			});
+
+			this.registerDomEvent(newThreadBtn, "click", () => {
+				this.createNewThread();
+			});
+		}
 	}
 
 	public getNextThreadId(): string {
@@ -585,9 +676,17 @@ export class FolgezettelView extends ItemView {
 		this.renderOutline();
 	}
 
+	public setActiveFilePath(path: string | null): void {
+		this.activeFilePath = path;
+	}
+
 	private handleActiveLeafChange(): void {
 		const activeFile = this.app.workspace.getActiveFile();
-		const newPath = activeFile ? activeFile.path : null;
+		if (!activeFile) {
+			// Do not clear the active note if switching to a non-file leaf like Folgezettel view itself
+			return;
+		}
+		const newPath = activeFile.path;
 		if (this.activeFilePath !== newPath) {
 			this.activeFilePath = newPath;
 

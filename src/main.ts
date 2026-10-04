@@ -363,17 +363,54 @@ export default class FolgezettelPlugin extends Plugin {
 
 	async activateViewInTab(): Promise<void> {
 		const { workspace } = this.app;
-		// Open as a standard workspace tab
+		const activeFile = this.app.workspace.getActiveFile();
+
+		// Check if there is already a leaf open with this view type
+		const leaves = workspace.getLeavesOfType(FOLGEZETTEL_VIEW_TYPE);
+		let targetLeaf: WorkspaceLeaf | null = null;
+
+		// Prefer existing leaf in workspace tabs
+		for (const l of leaves) {
+			if (l.getRoot() === workspace.rootSplit) {
+				targetLeaf = l;
+				break;
+			}
+		}
+
+		if (!targetLeaf && leaves.length > 0) {
+			targetLeaf = leaves[0];
+		}
+
+		if (targetLeaf) {
+			workspace.revealLeaf(targetLeaf);
+			if (targetLeaf.view instanceof FolgezettelView) {
+				if (activeFile) {
+					targetLeaf.view.setActiveFilePath(activeFile.path);
+				}
+				targetLeaf.view.revealActiveNote(true);
+			}
+			return;
+		}
+
+		// Otherwise, open as a standard workspace tab
 		const leaf = workspace.getLeaf("tab");
 		await leaf.setViewState({
 			type: FOLGEZETTEL_VIEW_TYPE,
 			active: true,
 		});
 		workspace.revealLeaf(leaf);
+
+		if (leaf.view instanceof FolgezettelView) {
+			if (activeFile) {
+				leaf.view.setActiveFilePath(activeFile.path);
+			}
+			leaf.view.revealActiveNote(true);
+		}
 	}
 
 	async activateViewInSidebar(): Promise<void> {
 		const { workspace } = this.app;
+		const activeFile = this.app.workspace.getActiveFile();
 
 		let leaf: WorkspaceLeaf | null = null;
 		const leaves = workspace.getLeavesOfType(FOLGEZETTEL_VIEW_TYPE);
@@ -398,6 +435,12 @@ export default class FolgezettelPlugin extends Plugin {
 
 		if (leaf) {
 			workspace.revealLeaf(leaf);
+			if (leaf.view instanceof FolgezettelView) {
+				if (activeFile) {
+					leaf.view.setActiveFilePath(activeFile.path);
+				}
+				leaf.view.revealActiveNote(true);
+			}
 		}
 	}
 

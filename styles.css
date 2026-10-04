@@ -197,6 +197,17 @@
 	flex: 1;
 	min-width: 0;
 	margin-right: 8px;
+	display: flex;
+	align-items: center;
+}
+
+.folgezettel-thread-id {
+	color: var(--text-accent, var(--interactive-accent));
+	font-weight: 700;
+	font-size: 1.15em;
+	user-select: none;
+	margin-right: 6px;
+	flex-shrink: 0;
 }
 
 /* Heading display when label exists */
@@ -351,4 +362,33 @@
 	font-style: italic;
 	text-align: center;
 	font-family: var(--font-interface);
+}
+
+/* Footer & bottom Create Thread button */
+.folgezettel-footer {
+	display: flex;
+	justify-content: center;
+	padding: 24px 0 36px 0;
+	margin-top: 16px;
+	border-top: 1px dashed var(--background-modifier-border);
+}
+
+.folgezettel-new-thread-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+	font-weight: 500;
+	padding: 6px 16px;
+	border-radius: var(--radius-m);
+}
+
+.folgezettel-new-thread-btn .folgezettel-btn-icon {
+	display: flex;
+	align-items: center;
+}
+
+.folgezettel-new-thread-btn .folgezettel-btn-icon svg {
+	width: 16px;
+	height: 16px;
 }

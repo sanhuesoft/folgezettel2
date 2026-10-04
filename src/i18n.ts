@@ -50,6 +50,7 @@ const STRINGS = {
 		searchPlaceholder: "Escribe para buscar...",
 		searchClearTooltip: "Limpiar búsqueda",
 		createThreadTooltip: (id: string) => `Crear hilo ${id}`,
+		createThreadBtnText: (id: string) => `Crear hilo ${id}`,
 		refreshOutlineTooltip: "Actualizar esquema",
 
 		// Thread Header
@@ -136,6 +137,7 @@ const STRINGS = {
 		searchPlaceholder: "Type to search...",
 		searchClearTooltip: "Clear search",
 		createThreadTooltip: (id: string) => `Create thread ${id}`,
+		createThreadBtnText: (id: string) => `Create thread ${id}`,
 		refreshOutlineTooltip: "Refresh outline",
 
 		// Thread Header
