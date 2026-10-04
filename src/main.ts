@@ -8,15 +8,24 @@ import { t, setLocaleSetting, LocaleSetting } from "./i18n";
 export interface FolgezettelSettings {
 	threadLabels: Record<string, string>;
 	locale: LocaleSetting;
+	showRibbonOutline: boolean;
+	showRibbonCreateNote: boolean;
+	showRibbonCreateThread: boolean;
 }
 
 export const DEFAULT_SETTINGS: FolgezettelSettings = {
 	threadLabels: {},
 	locale: "auto",
+	showRibbonOutline: true,
+	showRibbonCreateNote: true,
+	showRibbonCreateThread: true,
 };
 
 export default class FolgezettelPlugin extends Plugin {
 	settings: FolgezettelSettings;
+	private ribbonOutlineEl: HTMLElement | null = null;
+	private ribbonCreateNoteEl: HTMLElement | null = null;
+	private ribbonCreateThreadEl: HTMLElement | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -27,14 +36,53 @@ export default class FolgezettelPlugin extends Plugin {
 			(leaf: WorkspaceLeaf) => new FolgezettelView(leaf, this)
 		);
 
-		// Ribbon icon in left sidebar: click opens in tab, or focuses existing
-		this.addRibbonIcon("list", t("ribbonTooltip"), (evt: MouseEvent) => {
+		// Ribbon 1: Open outline
+		this.ribbonOutlineEl = this.addRibbonIcon("list", t("ribbonTooltip"), (evt: MouseEvent) => {
 			if (evt.ctrlKey || evt.metaKey) {
 				this.activateViewInSidebar();
 			} else {
 				this.activateViewInTab();
 			}
 		});
+
+		// Ribbon 2: Create note in branch
+		this.ribbonCreateNoteEl = this.addRibbonIcon(
+			"git-branch",
+			t("ribbonCreateNoteTooltipDefault"),
+			() => {
+				const node = this.getActiveFolgezettelNode();
+				if (!node) {
+					new Notice(t("noticeNoActiveFolgezettelNote"));
+					return;
+				}
+
+				const nodes = getFolgezettelNodes(this.app.vault);
+				const existingIds = new Set(nodes.map((n) => n.id.toLowerCase()));
+				const targetBranchId = getNextBranchId(node.id, existingIds);
+
+				createBranchNote(this.app, targetBranchId, () => {
+					const view = this.getView();
+					if (view) view.renderOutline();
+				});
+			}
+		);
+
+		// Ribbon 3: Create thread
+		this.ribbonCreateThreadEl = this.addRibbonIcon(
+			"list-plus",
+			t("ribbonCreateThreadTooltipDefault"),
+			() => {
+				const view = this.getView();
+				const threadId = view ? view.getNextThreadId() : this.computeNextThreadIdFallback();
+				if (view) {
+					view.createNewThread();
+				} else {
+					this.createThreadByFallback(threadId);
+				}
+			}
+		);
+
+		this.updateRibbonVisibility();
 
 		// Command palette: Open in a new tab
 		this.addCommand({
@@ -226,12 +274,26 @@ export default class FolgezettelPlugin extends Plugin {
 			const threadId = view ? view.getNextThreadId() : this.computeNextThreadIdFallback();
 			cmdCreateThread.name = `${this.manifest.name}: ${t("cmdCreateNextThread", threadId)}`;
 
+			if (this.ribbonCreateThreadEl) {
+				this.ribbonCreateThreadEl.setAttribute(
+					"aria-label",
+					t("ribbonCreateThreadTooltip", threadId)
+				);
+			}
+
 			const node = this.getActiveFolgezettelNode();
 			if (!node) {
 				cmdAssignBranch.name = `${this.manifest.name}: ${t("cmdAssignBranchActiveDefault")}`;
 				cmdCreateBranch.name = `${this.manifest.name}: ${t("cmdCreateBranchActiveDefault")}`;
 				cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActiveDefault")}`;
 				cmdCreateSibling.name = `${this.manifest.name}: ${t("cmdContinueThreadActiveDefault")}`;
+
+				if (this.ribbonCreateNoteEl) {
+					this.ribbonCreateNoteEl.setAttribute(
+						"aria-label",
+						t("ribbonCreateNoteTooltipDefault")
+					);
+				}
 				return;
 			}
 
@@ -242,6 +304,13 @@ export default class FolgezettelPlugin extends Plugin {
 
 			cmdAssignBranch.name = `${this.manifest.name}: ${t("cmdAssignBranchActive", targetBranchId)}`;
 			cmdCreateBranch.name = `${this.manifest.name}: ${t("cmdCreateBranchActive", targetBranchId)}`;
+
+			if (this.ribbonCreateNoteEl) {
+				this.ribbonCreateNoteEl.setAttribute(
+					"aria-label",
+					t("ribbonCreateNoteTooltip", targetBranchId)
+				);
+			}
 
 			if (nextSibling && !existingIds.has(nextSibling.toLowerCase())) {
 				cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActive", nextSibling)}`;
@@ -261,6 +330,18 @@ export default class FolgezettelPlugin extends Plugin {
 		updateActiveCommands();
 
 		this.addSettingTab(new FolgezettelSettingTab(this.app, this));
+	}
+
+	updateRibbonVisibility(): void {
+		if (this.ribbonOutlineEl) {
+			this.ribbonOutlineEl.style.display = this.settings.showRibbonOutline ? "" : "none";
+		}
+		if (this.ribbonCreateNoteEl) {
+			this.ribbonCreateNoteEl.style.display = this.settings.showRibbonCreateNote ? "" : "none";
+		}
+		if (this.ribbonCreateThreadEl) {
+			this.ribbonCreateThreadEl.style.display = this.settings.showRibbonCreateThread ? "" : "none";
+		}
 	}
 
 	private getActiveFolgezettelNode(): FolgezettelNode | null {
@@ -400,6 +481,47 @@ class FolgezettelSettingTab extends PluginSettingTab {
 						setLocaleSetting(this.plugin.settings.locale);
 						await this.plugin.saveSettings();
 						this.display();
+					});
+			});
+
+		new Setting(containerEl).setName(t("settingsRibbonHeading")).setHeading();
+
+		new Setting(containerEl)
+			.setName(t("settingsRibbonOutline"))
+			.setDesc(t("settingsRibbonOutlineDesc"))
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.showRibbonOutline !== false)
+					.onChange(async (val: boolean) => {
+						this.plugin.settings.showRibbonOutline = val;
+						await this.plugin.saveSettings();
+						this.plugin.updateRibbonVisibility();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName(t("settingsRibbonCreateNote"))
+			.setDesc(t("settingsRibbonCreateNoteDesc"))
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.showRibbonCreateNote !== false)
+					.onChange(async (val: boolean) => {
+						this.plugin.settings.showRibbonCreateNote = val;
+						await this.plugin.saveSettings();
+						this.plugin.updateRibbonVisibility();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName(t("settingsRibbonCreateThread"))
+			.setDesc(t("settingsRibbonCreateThreadDesc"))
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.showRibbonCreateThread !== false)
+					.onChange(async (val: boolean) => {
+						this.plugin.settings.showRibbonCreateThread = val;
+						await this.plugin.saveSettings();
+						this.plugin.updateRibbonVisibility();
 					});
 			});
 	}

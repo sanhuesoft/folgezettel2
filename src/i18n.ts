@@ -36,6 +36,10 @@ const STRINGS = {
 		// General & View
 		viewTitle: "Folgezettel",
 		ribbonTooltip: "Folgezettel: Abrir esquema",
+		ribbonCreateThreadTooltip: (id: string) => `Folgezettel: Crear hilo [${id}]`,
+		ribbonCreateThreadTooltipDefault: "Folgezettel: Crear hilo nuevo",
+		ribbonCreateNoteTooltip: (id: string) => `Folgezettel: Crear la nota [${id}]`,
+		ribbonCreateNoteTooltipDefault: "Folgezettel: Crear la nota en rama",
 		emptyVaultMessage: "No se encontraron notas Folgezettel en la raíz.",
 		emptySearchMessage: "No hay notas que coincidan con la búsqueda.",
 
@@ -89,6 +93,7 @@ const STRINGS = {
 
 		// Notices & Alerts
 		noticeNoCandidateNotes: "No hay notas disponibles en Bandeja de entrada ni Durmiendo.",
+		noticeNoActiveFolgezettelNote: "No hay ninguna nota de Folgezettel activa abierta para crear una rama.",
 		noticeNoteAssigned: (id: string) => `Nota asignada como [${id}] en la raíz.`,
 		noticeErrorAssigning: (err: any) => `Error al asignar nota: ${err}`,
 		noticeNoteCreated: (id: string) => `Nota creada: [${id}]`,
@@ -104,11 +109,23 @@ const STRINGS = {
 		settingsLanguageAuto: "Automático (según Obsidian)",
 		settingsLanguageEs: "Español",
 		settingsLanguageEn: "English",
+
+		settingsRibbonHeading: "Botones en la barra lateral (Ribbon)",
+		settingsRibbonOutline: "Botón 'Abrir esquema'",
+		settingsRibbonOutlineDesc: "Muestra el icono en el ribbon para abrir la vista del esquema.",
+		settingsRibbonCreateThread: "Botón 'Crear hilo'",
+		settingsRibbonCreateThreadDesc: "Muestra el icono en el ribbon para crear el siguiente hilo principal (N.1).",
+		settingsRibbonCreateNote: "Botón 'Crear nota en rama'",
+		settingsRibbonCreateNoteDesc: "Muestra el icono en el ribbon para crear una nota hija a partir de la nota activa.",
 	},
 	en: {
 		// General & View
 		viewTitle: "Folgezettel",
 		ribbonTooltip: "Folgezettel: Open outline",
+		ribbonCreateThreadTooltip: (id: string) => `Folgezettel: Create thread [${id}]`,
+		ribbonCreateThreadTooltipDefault: "Folgezettel: Create new thread",
+		ribbonCreateNoteTooltip: (id: string) => `Folgezettel: Create note [${id}]`,
+		ribbonCreateNoteTooltipDefault: "Folgezettel: Create note in branch",
 		emptyVaultMessage: "No Folgezettel notes found at vault root.",
 		emptySearchMessage: "No notes match your search.",
 
@@ -162,6 +179,7 @@ const STRINGS = {
 
 		// Notices & Alerts
 		noticeNoCandidateNotes: "No notes available in Inbox or Incubation.",
+		noticeNoActiveFolgezettelNote: "No active Folgezettel note currently open to create a branch.",
 		noticeNoteAssigned: (id: string) => `Note assigned as [${id}] at root.`,
 		noticeErrorAssigning: (err: any) => `Error assigning note: ${err}`,
 		noticeNoteCreated: (id: string) => `Note created: [${id}]`,
@@ -177,6 +195,14 @@ const STRINGS = {
 		settingsLanguageAuto: "Automatic (follows Obsidian)",
 		settingsLanguageEs: "Español",
 		settingsLanguageEn: "English",
+
+		settingsRibbonHeading: "Left Ribbon Buttons",
+		settingsRibbonOutline: "Open outline button",
+		settingsRibbonOutlineDesc: "Show ribbon icon to open or focus the Folgezettel outline.",
+		settingsRibbonCreateThread: "Create thread button",
+		settingsRibbonCreateThreadDesc: "Show ribbon icon to create the next major thread (N.1).",
+		settingsRibbonCreateNote: "Create note in branch button",
+		settingsRibbonCreateNoteDesc: "Show ribbon icon to create a child branch note from the active note.",
 	},
 };
 
