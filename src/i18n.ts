@@ -35,11 +35,14 @@ const STRINGS = {
 	es: {
 		// General & View
 		viewTitle: "Folgezettel",
-		ribbonTooltip: "Folgezettel: Abrir esquema",
-		ribbonCreateThreadTooltip: (id: string) => `Folgezettel: Crear hilo [${id}]`,
-		ribbonCreateThreadTooltipDefault: "Folgezettel: Crear hilo nuevo",
-		ribbonCreateNoteTooltip: (id: string) => `Folgezettel: Crear la nota [${id}]`,
-		ribbonCreateNoteTooltipDefault: "Folgezettel: Crear la nota en rama",
+		ribbonTooltip: "Open outline",
+		ribbonVerzweigungTooltip: (id: string) => `Verzweigung [${id}]`,
+		ribbonVerzweigungTooltipDefault: "Verzweigung",
+		ribbonFortsetzungTooltip: (id: string) => `Fortsetzung [${id}]`,
+		ribbonFortsetzungTooltipDefault: "Fortsetzung",
+		ribbonFortsetzungTooltipExists: (id: string) => `Fortsetzung [${id}] (ya existe)`,
+		ribbonCreateThreadTooltip: (id: string) => `Thread [${id}]`,
+		ribbonCreateThreadTooltipDefault: "Thread",
 		emptyVaultMessage: "No se encontraron notas Folgezettel en la raíz.",
 		emptySearchMessage: "No hay notas que coincidan con la búsqueda.",
 
@@ -64,10 +67,11 @@ const STRINGS = {
 		expandBranchTooltip: "Expandir rama",
 
 		// Context Menu
-		assignNoteBranchMenu: (id: string) => `Asignar nota en [${id}]`,
-		createNoteBranchMenu: (id: string) => `Crear la nota [${id}]`,
-		assignNoteSiblingMenu: (id: string) => `Asignar nota en [${id}]`,
-		continueThreadMenu: (id: string) => `Continuar hilo en [${id}]`,
+		createNoteBranchMenu: (id: string) => `Verzweigung [${id}]`,
+		assignNoteBranchMenu: (id: string) => `Asignar como Verzweigung [${id}]`,
+		continueThreadMenu: (id: string) => `Fortsetzung [${id}]`,
+		assignNoteSiblingMenu: (id: string) => `Asignar como Fortsetzung [${id}]`,
+		changeThreadIdMenu: (id: number) => `Cambiar ID [${id}]`,
 
 		// Command Palette
 		cmdOpenTab: "Abrir esquema en una pestaña",
@@ -78,19 +82,30 @@ const STRINGS = {
 		cmdRefreshOutline: "Actualizar esquema",
 		cmdInsertReference: "Insertar referencia",
 
-		cmdAssignBranchActive: (id: string) => `Asignar nota en [${id}]`,
-		cmdAssignBranchActiveDefault: "Asignar nota en rama",
-		cmdCreateBranchActive: (id: string) => `Crear la nota [${id}]`,
-		cmdCreateBranchActiveDefault: "Crear la nota en rama",
-		cmdAssignSiblingActive: (id: string) => `Asignar nota en [${id}]`,
-		cmdAssignSiblingActiveDefault: "Asignar nota en siguiente hilo",
-		cmdContinueThreadActive: (id: string) => `Continuar hilo en [${id}]`,
-		cmdContinueThreadActiveDefault: "Continuar hilo",
+		cmdAssignBranchActive: (id: string) => `Asignar como Verzweigung en [${id}]`,
+		cmdAssignBranchActiveDefault: "Asignar como Verzweigung (bifurcar / intercalar)",
+		cmdCreateBranchActive: (id: string) => `Verzweigung (bifurcar / intercalar) en [${id}]`,
+		cmdCreateBranchActiveDefault: "Verzweigung (bifurcar / intercalar)",
+		cmdAssignSiblingActive: (id: string) => `Asignar como Fortsetzung en [${id}]`,
+		cmdAssignSiblingActiveDefault: "Asignar como Fortsetzung (continuación)",
+		cmdContinueThreadActive: (id: string) => `Fortsetzung (continuación) en [${id}]`,
+		cmdContinueThreadActiveDefault: "Fortsetzung (continuación)",
 
 		// Modals
 		modalSearchInboxPlaceholder: "Escribe para buscar nota en Bandeja de entrada o Durmiendo...",
 		modalSearchRefPlaceholder: "Escribe para buscar referencia Folgezettel por ID o título...",
 		modalFolderLabel: (folder: string) => `(${folder})`,
+		modalChangeThreadIdTitle: (id: number) => `Cambiar ID del hilo [${id}]`,
+		modalChangeThreadIdDesc: (id: number) => `Introduce el nuevo ID numérico para este hilo. Se renombrarán automáticamente todas las notas subordinadas que pertenezcan a este hilo (ej. ${id}.1, ${id}.1a, etc.) y se actualizarán sus enlaces en la bóveda.`,
+		modalChangeThreadIdInputLabel: "Nuevo ID del hilo",
+		modalChangeThreadIdPlaceholder: "Ej. 15",
+		modalChangeThreadIdConfirm: "Cambiar ID",
+		modalChangeThreadIdCancel: "Cancelar",
+		modalChangeThreadIdRenaming: "Renombrando...",
+		modalChangeThreadIdInvalid: "Introduce un número entero positivo válido (ej. 1, 2, 15).",
+		modalChangeThreadIdSame: "El nuevo ID debe ser diferente al ID actual.",
+		modalChangeThreadIdExists: (id: number) => `El hilo [${id}] ya existe en la bóveda. Elige un ID que no esté en uso.`,
+		modalChangeThreadIdCollision: (path: string) => `No se puede renombrar porque ya existe el archivo: ${path}`,
 
 		// Notices & Alerts
 		noticeNoCandidateNotes: "No hay notas disponibles en Bandeja de entrada ni Durmiendo.",
@@ -102,6 +117,8 @@ const STRINGS = {
 		noticeNewThreadCreated: (id: string) => `Nuevo hilo creado: [${id}]`,
 		noticeErrorCreatingThread: (err: any) => `Error al crear hilo: ${err}`,
 		noticeNoFolgezettelNotesFound: "No se encontraron notas de Folgezettel en la bóveda.",
+		noticeThreadRenamed: (oldId: string, newId: string, count: number) => `Hilo [${oldId}] renombrado a [${newId}] (${count} notas actualizadas).`,
+		noticeErrorRenamingThread: (err: any) => `Error al renombrar el hilo: ${err}`,
 
 		// Settings Tab
 		settingsTitle: "Configuración de Folgezettel",
@@ -112,21 +129,30 @@ const STRINGS = {
 		settingsLanguageEn: "English",
 
 		settingsRibbonHeading: "Botones en la barra lateral (Ribbon)",
-		settingsRibbonOutline: "Botón 'Abrir esquema'",
-		settingsRibbonOutlineDesc: "Muestra el icono en el ribbon para abrir la vista del esquema.",
-		settingsRibbonCreateThread: "Botón 'Crear hilo'",
-		settingsRibbonCreateThreadDesc: "Muestra el icono en el ribbon para crear el siguiente hilo principal (N.1).",
-		settingsRibbonCreateNote: "Botón 'Crear nota en rama'",
-		settingsRibbonCreateNoteDesc: "Muestra el icono en el ribbon para crear una nota hija a partir de la nota activa.",
+		settingsRibbonOutline: "Botón 'Open outline'",
+		settingsRibbonOutlineDesc: "Muestra el icono en el ribbon para abrir o enfocar la vista del esquema.",
+		settingsRibbonCreateBranch: "Botón 'Verzweigung (bifurcar / intercalar)'",
+		settingsRibbonCreateBranchDesc: "Muestra el icono en el ribbon para crear una bifurcación o intercalación (Verzweigung) a partir de la nota activa.",
+		settingsRibbonCreateParallel: "Botón 'Fortsetzung (continuación)'",
+		settingsRibbonCreateParallelDesc: "Muestra el icono en el ribbon para continuar directamente en el mismo nivel (Fortsetzung) a partir de la nota activa.",
+		settingsRibbonCreateThread: "Botón 'Thread'",
+		settingsRibbonCreateThreadDesc: "Muestra el icono en el ribbon para crear el siguiente hilo nuevo (ej. 19.1).",
+
+		settingsQuickSwitcherHeading: "Búsqueda (Quick Switcher)",
+		settingsEnhanceQuickSwitcher: "Mejorar búsqueda en Quick Switcher",
+		settingsEnhanceQuickSwitcherDesc: "Prioriza coincidencias exactas de ID Folgezettel y ordena sus sub-ramas jerárquicamente al buscar por número en el Quick Switcher (Cmd/Ctrl + O).",
 	},
 	en: {
 		// General & View
 		viewTitle: "Folgezettel",
-		ribbonTooltip: "Folgezettel: Open outline",
-		ribbonCreateThreadTooltip: (id: string) => `Folgezettel: Create thread [${id}]`,
-		ribbonCreateThreadTooltipDefault: "Folgezettel: Create new thread",
-		ribbonCreateNoteTooltip: (id: string) => `Folgezettel: Create note [${id}]`,
-		ribbonCreateNoteTooltipDefault: "Folgezettel: Create note in branch",
+		ribbonTooltip: "Open outline",
+		ribbonVerzweigungTooltip: (id: string) => `Verzweigung [${id}]`,
+		ribbonVerzweigungTooltipDefault: "Verzweigung",
+		ribbonFortsetzungTooltip: (id: string) => `Fortsetzung [${id}]`,
+		ribbonFortsetzungTooltipDefault: "Fortsetzung",
+		ribbonFortsetzungTooltipExists: (id: string) => `Fortsetzung [${id}] (already exists)`,
+		ribbonCreateThreadTooltip: (id: string) => `Thread [${id}]`,
+		ribbonCreateThreadTooltipDefault: "Thread",
 		emptyVaultMessage: "No Folgezettel notes found at vault root.",
 		emptySearchMessage: "No notes match your search.",
 
@@ -151,10 +177,11 @@ const STRINGS = {
 		expandBranchTooltip: "Expand branch",
 
 		// Context Menu
-		assignNoteBranchMenu: (id: string) => `Assign note to [${id}]`,
-		createNoteBranchMenu: (id: string) => `Create note [${id}]`,
-		assignNoteSiblingMenu: (id: string) => `Assign note to [${id}]`,
-		continueThreadMenu: (id: string) => `Continue thread in [${id}]`,
+		createNoteBranchMenu: (id: string) => `Verzweigung [${id}]`,
+		assignNoteBranchMenu: (id: string) => `Assign to [${id}]`,
+		continueThreadMenu: (id: string) => `Fortsetzung [${id}]`,
+		assignNoteSiblingMenu: (id: string) => `Assign to [${id}]`,
+		changeThreadIdMenu: (id: number) => `Change ID [${id}]`,
 
 		// Command Palette
 		cmdOpenTab: "Open outline in a new tab",
@@ -165,19 +192,30 @@ const STRINGS = {
 		cmdRefreshOutline: "Refresh outline",
 		cmdInsertReference: "Insert reference",
 
-		cmdAssignBranchActive: (id: string) => `Assign note to [${id}]`,
-		cmdAssignBranchActiveDefault: "Assign note to branch",
-		cmdCreateBranchActive: (id: string) => `Create note [${id}]`,
-		cmdCreateBranchActiveDefault: "Create note in branch",
-		cmdAssignSiblingActive: (id: string) => `Assign note to [${id}]`,
-		cmdAssignSiblingActiveDefault: "Assign note to next thread",
-		cmdContinueThreadActive: (id: string) => `Continue thread in [${id}]`,
-		cmdContinueThreadActiveDefault: "Continue thread",
+		cmdAssignBranchActive: (id: string) => `Assign to [${id}]`,
+		cmdAssignBranchActiveDefault: "Assign to branch",
+		cmdCreateBranchActive: (id: string) => `Verzweigung at [${id}]`,
+		cmdCreateBranchActiveDefault: "Verzweigung",
+		cmdAssignSiblingActive: (id: string) => `Assign to [${id}]`,
+		cmdAssignSiblingActiveDefault: "Assign to parallel note",
+		cmdContinueThreadActive: (id: string) => `Fortsetzung at [${id}]`,
+		cmdContinueThreadActiveDefault: "Fortsetzung",
 
 		// Modals
 		modalSearchInboxPlaceholder: "Type to search note in Inbox or Incubation...",
 		modalSearchRefPlaceholder: "Type to search Folgezettel reference by ID or title...",
 		modalFolderLabel: (folder: string) => `(${folder})`,
+		modalChangeThreadIdTitle: (id: number) => `Change thread ID [${id}]`,
+		modalChangeThreadIdDesc: (id: number) => `Enter the new numerical ID for this thread. All subordinate notes in this thread (e.g. ${id}.1, ${id}.1a, etc.) will be automatically renamed and vault links will be updated.`,
+		modalChangeThreadIdInputLabel: "New thread ID",
+		modalChangeThreadIdPlaceholder: "E.g. 15",
+		modalChangeThreadIdConfirm: "Change ID",
+		modalChangeThreadIdCancel: "Cancel",
+		modalChangeThreadIdRenaming: "Renaming...",
+		modalChangeThreadIdInvalid: "Enter a valid positive integer (e.g. 1, 2, 15).",
+		modalChangeThreadIdSame: "The new ID must be different from the current ID.",
+		modalChangeThreadIdExists: (id: number) => `Thread [${id}] already exists in the vault. Choose an unused ID.`,
+		modalChangeThreadIdCollision: (path: string) => `Cannot rename because file already exists: ${path}`,
 
 		// Notices & Alerts
 		noticeNoCandidateNotes: "No notes available in Inbox or Incubation.",
@@ -189,6 +227,8 @@ const STRINGS = {
 		noticeNewThreadCreated: (id: string) => `New thread created: [${id}]`,
 		noticeErrorCreatingThread: (err: any) => `Error creating thread: ${err}`,
 		noticeNoFolgezettelNotesFound: "No Folgezettel notes found in vault.",
+		noticeThreadRenamed: (oldId: string, newId: string, count: number) => `Thread [${oldId}] renamed to [${newId}] (${count} notes updated).`,
+		noticeErrorRenamingThread: (err: any) => `Error renaming thread: ${err}`,
 
 		// Settings Tab
 		settingsTitle: "Folgezettel Settings",
@@ -201,10 +241,16 @@ const STRINGS = {
 		settingsRibbonHeading: "Left Ribbon Buttons",
 		settingsRibbonOutline: "Open outline button",
 		settingsRibbonOutlineDesc: "Show ribbon icon to open or focus the Folgezettel outline.",
-		settingsRibbonCreateThread: "Create thread button",
-		settingsRibbonCreateThreadDesc: "Show ribbon icon to create the next major thread (N.1).",
-		settingsRibbonCreateNote: "Create note in branch button",
-		settingsRibbonCreateNoteDesc: "Show ribbon icon to create a child branch note from the active note.",
+		settingsRibbonCreateBranch: "'Verzweigung' button",
+		settingsRibbonCreateBranchDesc: "Show ribbon icon to create a branch or intercalation (Verzweigung) from the active note.",
+		settingsRibbonCreateParallel: "'Fortsetzung' button",
+		settingsRibbonCreateParallelDesc: "Show ribbon icon to create a direct continuation at the same level (Fortsetzung) from the active note.",
+		settingsRibbonCreateThread: "'Thread' button",
+		settingsRibbonCreateThreadDesc: "Show ribbon icon to create the next major thread (e.g. 19.1).",
+
+		settingsQuickSwitcherHeading: "Quick Switcher Search",
+		settingsEnhanceQuickSwitcher: "Enhance Quick Switcher search",
+		settingsEnhanceQuickSwitcherDesc: "Prioritizes exact Folgezettel ID matches and orders sub-branches hierarchically when searching by number in the Quick Switcher (Cmd/Ctrl + O).",
 	},
 };
 

@@ -1,35 +1,48 @@
 import { Plugin, WorkspaceLeaf, Notice, TFile, MarkdownView, Editor, PluginSettingTab, Setting, App } from "obsidian";
 import { FolgezettelView, FOLGEZETTEL_VIEW_TYPE } from "./view";
-import { getFolgezettelNodes, parseFolgezettelFile, getNextBranchId, getNextSiblingId, FolgezettelNode } from "./folgezettel";
+import { getFolgezettelNodes, parseFolgezettelFile, getNextBranchId, getFortsetzungId, FolgezettelNode } from "./folgezettel";
 import { assignBranchNote, createBranchNote } from "./actions";
 import { ReferenceSuggestModal } from "./modal";
 import { t, setLocaleSetting, LocaleSetting } from "./i18n";
+import { SwitcherEnhancer } from "./switcher";
 
 export interface FolgezettelSettings {
 	threadLabels: Record<string, string>;
 	locale: LocaleSetting;
 	showRibbonOutline: boolean;
-	showRibbonCreateNote: boolean;
+	showRibbonCreateBranch: boolean;
+	showRibbonCreateParallel: boolean;
 	showRibbonCreateThread: boolean;
+	enhanceQuickSwitcher: boolean;
 }
 
 export const DEFAULT_SETTINGS: FolgezettelSettings = {
 	threadLabels: {},
 	locale: "auto",
 	showRibbonOutline: true,
-	showRibbonCreateNote: true,
+	showRibbonCreateBranch: true,
+	showRibbonCreateParallel: true,
 	showRibbonCreateThread: true,
+	enhanceQuickSwitcher: true,
 };
 
 export default class FolgezettelPlugin extends Plugin {
 	settings: FolgezettelSettings;
 	private ribbonOutlineEl: HTMLElement | null = null;
-	private ribbonCreateNoteEl: HTMLElement | null = null;
+	private ribbonCreateBranchEl: HTMLElement | null = null;
+	private ribbonCreateParallelEl: HTMLElement | null = null;
 	private ribbonCreateThreadEl: HTMLElement | null = null;
+	private switcherEnhancer: SwitcherEnhancer;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 		setLocaleSetting(this.settings.locale);
+
+		this.switcherEnhancer = new SwitcherEnhancer(
+			this.app,
+			() => this.settings.enhanceQuickSwitcher !== false
+		);
+		this.switcherEnhancer.enable();
 
 		this.registerView(
 			FOLGEZETTEL_VIEW_TYPE,
@@ -45,16 +58,13 @@ export default class FolgezettelPlugin extends Plugin {
 			}
 		});
 
-		// Ribbon 2: Create note in branch
-		this.ribbonCreateNoteEl = this.addRibbonIcon(
-			"git-branch",
-			t("ribbonCreateNoteTooltipDefault"),
+		// Ribbon 2: Create Verzweigung note (arrow-down-right)
+		this.ribbonCreateBranchEl = this.addRibbonIcon(
+			"arrow-down-right",
+			t("ribbonVerzweigungTooltipDefault"),
 			() => {
 				const node = this.getActiveFolgezettelNode();
-				if (!node) {
-					new Notice(t("noticeNoActiveFolgezettelNote"));
-					return;
-				}
+				if (!node) return;
 
 				const nodes = getFolgezettelNodes(this.app.vault);
 				const existingIds = new Set(nodes.map((n) => n.id.toLowerCase()));
@@ -63,11 +73,35 @@ export default class FolgezettelPlugin extends Plugin {
 				createBranchNote(this.app, targetBranchId, () => {
 					const view = this.getView();
 					if (view) view.renderOutline();
+					this.updateRibbonButtons();
 				});
 			}
 		);
 
-		// Ribbon 3: Create thread
+		// Ribbon 3: Create Fortsetzung note (arrow-down)
+		this.ribbonCreateParallelEl = this.addRibbonIcon(
+			"arrow-down",
+			t("ribbonFortsetzungTooltipDefault"),
+			() => {
+				const node = this.getActiveFolgezettelNode();
+				if (!node) return;
+
+				const nodes = getFolgezettelNodes(this.app.vault);
+				const existingIds = new Set(nodes.map((n) => n.id.toLowerCase()));
+				const fortsetzungId = getFortsetzungId(node);
+				if (!fortsetzungId || existingIds.has(fortsetzungId.toLowerCase())) {
+					return;
+				}
+
+				createBranchNote(this.app, fortsetzungId, () => {
+					const view = this.getView();
+					if (view) view.renderOutline();
+					this.updateRibbonButtons();
+				});
+			}
+		);
+
+		// Ribbon 4: Create thread (list-plus)
 		this.ribbonCreateThreadEl = this.addRibbonIcon(
 			"list-plus",
 			t("ribbonCreateThreadTooltipDefault"),
@@ -79,6 +113,7 @@ export default class FolgezettelPlugin extends Plugin {
 				} else {
 					this.createThreadByFallback(threadId);
 				}
+				this.updateRibbonButtons();
 			}
 		);
 
@@ -215,34 +250,33 @@ export default class FolgezettelPlugin extends Plugin {
 			},
 		});
 
-		// 3. Asignar nota en siguiente hilo (continuación del hilo principal)
+		// 3. Asignar como Fortsetzung
 		const cmdAssignSibling = this.addCommand({
 			id: "folgezettel-assign-sibling-active",
 			name: t("cmdAssignSiblingActiveDefault"),
-			icon: "arrow-down-right",
+			icon: "arrow-down",
 			checkCallback: (checking: boolean) => {
 				const node = this.getActiveFolgezettelNode();
 				if (!node) return false;
 
-				const nextSibling = getNextSiblingId(node.id);
-				if (!nextSibling) return false;
-
+				const fortsetzungId = getFortsetzungId(node);
 				const nodes = getFolgezettelNodes(this.app.vault);
 				const existingIds = new Set(nodes.map((n) => n.id.toLowerCase()));
-				if (existingIds.has(nextSibling.toLowerCase())) return false;
+				if (!fortsetzungId || existingIds.has(fortsetzungId.toLowerCase())) return false;
 
-				cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActive", nextSibling)}`;
+				cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActive", fortsetzungId)}`;
 				if (checking) return true;
 
-				assignBranchNote(this.app, nextSibling, () => {
+				assignBranchNote(this.app, fortsetzungId, () => {
 					const view = this.getView();
 					if (view) view.renderOutline();
+					this.updateRibbonButtons();
 				});
 				return true;
 			},
 		});
 
-		// 4. Continuar hilo en [nextSibling]
+		// 4. Continuar con Fortsetzung
 		const cmdCreateSibling = this.addCommand({
 			id: "folgezettel-continue-thread-active",
 			name: t("cmdContinueThreadActiveDefault"),
@@ -251,19 +285,18 @@ export default class FolgezettelPlugin extends Plugin {
 				const node = this.getActiveFolgezettelNode();
 				if (!node) return false;
 
-				const nextSibling = getNextSiblingId(node.id);
-				if (!nextSibling) return false;
-
+				const fortsetzungId = getFortsetzungId(node);
 				const nodes = getFolgezettelNodes(this.app.vault);
 				const existingIds = new Set(nodes.map((n) => n.id.toLowerCase()));
-				if (existingIds.has(nextSibling.toLowerCase())) return false;
+				if (!fortsetzungId || existingIds.has(fortsetzungId.toLowerCase())) return false;
 
-				cmdCreateSibling.name = `${this.manifest.name}: ${t("cmdContinueThreadActive", nextSibling)}`;
+				cmdCreateSibling.name = `${this.manifest.name}: ${t("cmdContinueThreadActive", fortsetzungId)}`;
 				if (checking) return true;
 
-				createBranchNote(this.app, nextSibling, () => {
+				createBranchNote(this.app, fortsetzungId, () => {
 					const view = this.getView();
 					if (view) view.renderOutline();
+					this.updateRibbonButtons();
 				});
 				return true;
 			},
@@ -274,55 +307,56 @@ export default class FolgezettelPlugin extends Plugin {
 			const threadId = view ? view.getNextThreadId() : this.computeNextThreadIdFallback();
 			cmdCreateThread.name = `${this.manifest.name}: ${t("cmdCreateNextThread", threadId)}`;
 
-			if (this.ribbonCreateThreadEl) {
-				this.ribbonCreateThreadEl.setAttribute(
-					"aria-label",
-					t("ribbonCreateThreadTooltip", threadId)
-				);
-			}
-
 			const node = this.getActiveFolgezettelNode();
 			if (!node) {
 				cmdAssignBranch.name = `${this.manifest.name}: ${t("cmdAssignBranchActiveDefault")}`;
 				cmdCreateBranch.name = `${this.manifest.name}: ${t("cmdCreateBranchActiveDefault")}`;
 				cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActiveDefault")}`;
 				cmdCreateSibling.name = `${this.manifest.name}: ${t("cmdContinueThreadActiveDefault")}`;
-
-				if (this.ribbonCreateNoteEl) {
-					this.ribbonCreateNoteEl.setAttribute(
-						"aria-label",
-						t("ribbonCreateNoteTooltipDefault")
-					);
-				}
-				return;
-			}
-
-			const nodes = getFolgezettelNodes(this.app.vault);
-			const existingIds = new Set(nodes.map((n) => n.id.toLowerCase()));
-			const targetBranchId = getNextBranchId(node.id, existingIds);
-			const nextSibling = getNextSiblingId(node.id);
-
-			cmdAssignBranch.name = `${this.manifest.name}: ${t("cmdAssignBranchActive", targetBranchId)}`;
-			cmdCreateBranch.name = `${this.manifest.name}: ${t("cmdCreateBranchActive", targetBranchId)}`;
-
-			if (this.ribbonCreateNoteEl) {
-				this.ribbonCreateNoteEl.setAttribute(
-					"aria-label",
-					t("ribbonCreateNoteTooltip", targetBranchId)
-				);
-			}
-
-			if (nextSibling && !existingIds.has(nextSibling.toLowerCase())) {
-				cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActive", nextSibling)}`;
-				cmdCreateSibling.name = `${this.manifest.name}: ${t("cmdContinueThreadActive", nextSibling)}`;
 			} else {
-				cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActiveDefault")}`;
-				cmdCreateSibling.name = `${this.manifest.name}: ${t("cmdContinueThreadActiveDefault")}`;
+				const nodes = getFolgezettelNodes(this.app.vault);
+				const existingIds = new Set(nodes.map((n) => n.id.toLowerCase()));
+				const targetBranchId = getNextBranchId(node.id, existingIds);
+				const fortsetzungId = getFortsetzungId(node);
+				const isFortsetzungTaken = existingIds.has(fortsetzungId.toLowerCase());
+
+				cmdAssignBranch.name = `${this.manifest.name}: ${t("cmdAssignBranchActive", targetBranchId)}`;
+				cmdCreateBranch.name = `${this.manifest.name}: ${t("cmdCreateBranchActive", targetBranchId)}`;
+
+				if (!isFortsetzungTaken) {
+					cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActive", fortsetzungId)}`;
+					cmdCreateSibling.name = `${this.manifest.name}: ${t("cmdContinueThreadActive", fortsetzungId)}`;
+				} else {
+					cmdAssignSibling.name = `${this.manifest.name}: ${t("cmdAssignSiblingActiveDefault")}`;
+					cmdCreateSibling.name = `${this.manifest.name}: ${t("cmdContinueThreadActiveDefault")}`;
+				}
 			}
+
+			this.updateRibbonButtons();
 		};
 
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", () => {
+				updateActiveCommands();
+			})
+		);
+		this.registerEvent(
+			this.app.workspace.on("layout-change", () => {
+				updateActiveCommands();
+			})
+		);
+		this.registerEvent(
+			this.app.vault.on("create", () => {
+				updateActiveCommands();
+			})
+		);
+		this.registerEvent(
+			this.app.vault.on("delete", () => {
+				updateActiveCommands();
+			})
+		);
+		this.registerEvent(
+			this.app.vault.on("rename", () => {
 				updateActiveCommands();
 			})
 		);
@@ -332,15 +366,95 @@ export default class FolgezettelPlugin extends Plugin {
 		this.addSettingTab(new FolgezettelSettingTab(this.app, this));
 	}
 
+	private setRibbonBtnEnabled(el: HTMLElement | null, enabled: boolean): void {
+		if (!el) return;
+		if (enabled) {
+			el.removeClass("is-disabled");
+			el.style.opacity = "";
+			el.style.pointerEvents = "";
+			el.removeAttribute("aria-disabled");
+		} else {
+			el.addClass("is-disabled");
+			el.style.opacity = "0.35";
+			el.style.pointerEvents = "none";
+			el.setAttribute("aria-disabled", "true");
+		}
+	}
+
+	public updateRibbonButtons(): void {
+		const nodes = getFolgezettelNodes(this.app.vault);
+		const existingIds = new Set(nodes.map((n) => n.id.toLowerCase()));
+
+		// 1. Thread button
+		const view = this.getView();
+		const threadId = view ? view.getNextThreadId() : this.computeNextThreadIdFallback();
+		if (this.ribbonCreateThreadEl) {
+			this.ribbonCreateThreadEl.setAttribute(
+				"aria-label",
+				t("ribbonCreateThreadTooltip", threadId)
+			);
+		}
+
+		// 2 & 3: Verzweigung and Fortsetzung buttons
+		const node = this.getActiveFolgezettelNode();
+		if (!node) {
+			if (this.ribbonCreateBranchEl) {
+				this.ribbonCreateBranchEl.setAttribute(
+					"aria-label",
+					t("ribbonVerzweigungTooltipDefault")
+				);
+				this.setRibbonBtnEnabled(this.ribbonCreateBranchEl, false);
+			}
+			if (this.ribbonCreateParallelEl) {
+				this.ribbonCreateParallelEl.setAttribute(
+					"aria-label",
+					t("ribbonFortsetzungTooltipDefault")
+				);
+				this.setRibbonBtnEnabled(this.ribbonCreateParallelEl, false);
+			}
+		} else {
+			const targetBranchId = getNextBranchId(node.id, existingIds);
+			if (this.ribbonCreateBranchEl) {
+				this.ribbonCreateBranchEl.setAttribute(
+					"aria-label",
+					t("ribbonVerzweigungTooltip", targetBranchId)
+				);
+				this.setRibbonBtnEnabled(this.ribbonCreateBranchEl, true);
+			}
+
+			const fortsetzungId = getFortsetzungId(node);
+			const isFortsetzungTaken = existingIds.has(fortsetzungId.toLowerCase());
+			if (this.ribbonCreateParallelEl) {
+				if (isFortsetzungTaken) {
+					this.ribbonCreateParallelEl.setAttribute(
+						"aria-label",
+						t("ribbonFortsetzungTooltipExists", fortsetzungId)
+					);
+					this.setRibbonBtnEnabled(this.ribbonCreateParallelEl, false);
+				} else {
+					this.ribbonCreateParallelEl.setAttribute(
+						"aria-label",
+						t("ribbonFortsetzungTooltip", fortsetzungId)
+					);
+					this.setRibbonBtnEnabled(this.ribbonCreateParallelEl, true);
+				}
+			}
+		}
+	}
+
 	updateRibbonVisibility(): void {
 		if (this.ribbonOutlineEl) {
-			this.ribbonOutlineEl.style.display = this.settings.showRibbonOutline ? "" : "none";
+			this.ribbonOutlineEl.style.display = this.settings.showRibbonOutline !== false ? "" : "none";
 		}
-		if (this.ribbonCreateNoteEl) {
-			this.ribbonCreateNoteEl.style.display = this.settings.showRibbonCreateNote ? "" : "none";
+		if (this.ribbonCreateBranchEl) {
+			const showBranch = this.settings.showRibbonCreateBranch ?? (this.settings as any).showRibbonCreateNote ?? true;
+			this.ribbonCreateBranchEl.style.display = showBranch ? "" : "none";
+		}
+		if (this.ribbonCreateParallelEl) {
+			this.ribbonCreateParallelEl.style.display = this.settings.showRibbonCreateParallel !== false ? "" : "none";
 		}
 		if (this.ribbonCreateThreadEl) {
-			this.ribbonCreateThreadEl.style.display = this.settings.showRibbonCreateThread ? "" : "none";
+			this.ribbonCreateThreadEl.style.display = this.settings.showRibbonCreateThread !== false ? "" : "none";
 		}
 	}
 
@@ -359,6 +473,9 @@ export default class FolgezettelPlugin extends Plugin {
 	onunload(): void {
 		// Detach leaves when plugin disabled
 		this.app.workspace.detachLeavesOfType(FOLGEZETTEL_VIEW_TYPE);
+		if (this.switcherEnhancer) {
+			this.switcherEnhancer.disable();
+		}
 	}
 
 	async activateViewInTab(): Promise<void> {
@@ -543,13 +660,27 @@ class FolgezettelSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName(t("settingsRibbonCreateNote"))
-			.setDesc(t("settingsRibbonCreateNoteDesc"))
+			.setName(t("settingsRibbonCreateBranch"))
+			.setDesc(t("settingsRibbonCreateBranchDesc"))
+			.addToggle((toggle) => {
+				const current = this.plugin.settings.showRibbonCreateBranch ?? (this.plugin.settings as any).showRibbonCreateNote ?? true;
+				toggle
+					.setValue(current)
+					.onChange(async (val: boolean) => {
+						this.plugin.settings.showRibbonCreateBranch = val;
+						await this.plugin.saveSettings();
+						this.plugin.updateRibbonVisibility();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName(t("settingsRibbonCreateParallel"))
+			.setDesc(t("settingsRibbonCreateParallelDesc"))
 			.addToggle((toggle) => {
 				toggle
-					.setValue(this.plugin.settings.showRibbonCreateNote !== false)
+					.setValue(this.plugin.settings.showRibbonCreateParallel !== false)
 					.onChange(async (val: boolean) => {
-						this.plugin.settings.showRibbonCreateNote = val;
+						this.plugin.settings.showRibbonCreateParallel = val;
 						await this.plugin.saveSettings();
 						this.plugin.updateRibbonVisibility();
 					});
@@ -565,6 +696,20 @@ class FolgezettelSettingTab extends PluginSettingTab {
 						this.plugin.settings.showRibbonCreateThread = val;
 						await this.plugin.saveSettings();
 						this.plugin.updateRibbonVisibility();
+					});
+			});
+
+		new Setting(containerEl).setName(t("settingsQuickSwitcherHeading")).setHeading();
+
+		new Setting(containerEl)
+			.setName(t("settingsEnhanceQuickSwitcher"))
+			.setDesc(t("settingsEnhanceQuickSwitcherDesc"))
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.enhanceQuickSwitcher !== false)
+					.onChange(async (val: boolean) => {
+						this.plugin.settings.enhanceQuickSwitcher = val;
+						await this.plugin.saveSettings();
 					});
 			});
 	}

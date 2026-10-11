@@ -8,11 +8,16 @@
     "6": "Autismo",
     "7": "Política",
     "8": "Moralidad – Religión",
-    "9": "Dinero",
+    "9": "Sistemas económicos",
     "10": "Inteligencia Artificial – Machine Learning",
     "11": "Ansiedad – Depresión – Serotonina",
     "12": "Educación – Aprendizaje",
-    "13": "Distributismo como tercera vía"
+    "13": "Capitalismo – Distributismo",
+    "14": "Ontoepistemología de la matemática"
   },
-  "locale": "auto"
+  "locale": "auto",
+  "showRibbonOutline": true,
+  "showRibbonCreateNote": true,
+  "showRibbonCreateThread": true,
+  "enhanceQuickSwitcher": true
 }

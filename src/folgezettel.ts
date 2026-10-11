@@ -173,3 +173,40 @@ export function getNextSiblingId(id: string): string | null {
 	const minor = parseInt(match[2], 10);
 	return `${major}.${minor + 1}`;
 }
+
+export function incrementLetterString(str: string): string {
+	const chars = str.toLowerCase().split("");
+	let i = chars.length - 1;
+	while (i >= 0) {
+		if (chars[i] === "z") {
+			chars[i] = "a";
+			i--;
+		} else {
+			chars[i] = String.fromCharCode(chars[i].charCodeAt(0) + 1);
+			return chars.join("");
+		}
+	}
+	return "a" + chars.join("");
+}
+
+export function getFortsetzungId(node: FolgezettelNode): string {
+	if (node.tokens.length === 0) {
+		return `${node.major}.1`;
+	}
+
+	const newTokens = [...node.tokens];
+	const lastToken = newTokens[newTokens.length - 1];
+
+	if (/^\d+$/.test(lastToken)) {
+		const nextNum = parseInt(lastToken, 10) + 1;
+		newTokens[newTokens.length - 1] = String(nextNum);
+	} else {
+		newTokens[newTokens.length - 1] = incrementLetterString(lastToken);
+	}
+
+	return `${node.major}.${newTokens.join("")}`;
+}
+
+export const getVerzweigungId = getNextBranchId;
+
+

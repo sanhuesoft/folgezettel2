@@ -1,6 +1,7 @@
 import { ItemView, WorkspaceLeaf, setIcon, Menu, Notice, TFile } from "obsidian";
-import { FolgezettelNode, getFolgezettelNodes, getNextBranchId, getNextSiblingId, isAncestorOf } from "./folgezettel";
+import { FolgezettelNode, getFolgezettelNodes, getNextBranchId, getFortsetzungId, isAncestorOf } from "./folgezettel";
 import { assignBranchNote, createBranchNote } from "./actions";
+import { ChangeThreadIdModal } from "./modal";
 import { t } from "./i18n";
 import type FolgezettelPlugin from "./main";
 
@@ -294,21 +295,21 @@ export class FolgezettelView extends ItemView {
 					}
 					const nextBackboneId = `${node.major}.${nextBackboneNum}`;
 
-					// Option 1: Assign note to next backbone position
-					menu.addItem((item) => {
-						item.setTitle(t("assignNoteSiblingMenu", nextBackboneId))
-							.setIcon("arrow-down-right")
-							.onClick(() => {
-								assignBranchNote(this.app, nextBackboneId, () => this.renderOutline());
-							});
-					});
-
-					// Option 2: Continue thread with next backbone note
+					// Option 1: Create next backbone note
 					menu.addItem((item) => {
 						item.setTitle(t("continueThreadMenu", nextBackboneId))
 							.setIcon("arrow-down")
 							.onClick(() => {
 								createBranchNote(this.app, nextBackboneId, () => this.renderOutline());
+							});
+					});
+
+					// Option 2: Assign note to next backbone position
+					menu.addItem((item) => {
+						item.setTitle(t("assignNoteSiblingMenu", nextBackboneId))
+							.setIcon("arrow-down")
+							.onClick(() => {
+								assignBranchNote(this.app, nextBackboneId, () => this.renderOutline());
 							});
 					});
 
@@ -319,29 +320,35 @@ export class FolgezettelView extends ItemView {
 						menu.addSeparator();
 
 						menu.addItem((item) => {
-							item.setTitle(t("assignNoteBranchMenu", rootBranchId))
-								.setIcon("git-branch")
-								.onClick(() => {
-									assignBranchNote(this.app, rootBranchId, () => this.renderOutline());
-								});
-						});
-
-						menu.addItem((item) => {
 							item.setTitle(t("createNoteBranchMenu", rootBranchId))
-								.setIcon("plus")
+								.setIcon("arrow-down-right")
 								.onClick(() => {
 									createBranchNote(this.app, rootBranchId, () => this.renderOutline());
 								});
 						});
+
+						menu.addItem((item) => {
+							item.setTitle(t("assignNoteBranchMenu", rootBranchId))
+								.setIcon("arrow-down-right")
+								.onClick(() => {
+									assignBranchNote(this.app, rootBranchId, () => this.renderOutline());
+								});
+						});
 					}
 
-					// Option 4: Create next major thread
+					// Option 4: Change thread ID
 					menu.addSeparator();
 					menu.addItem((item) => {
-						item.setTitle(t("cmdCreateNextThread", this.nextThreadId))
-							.setIcon("list-plus")
+						item.setTitle(t("changeThreadIdMenu", node.major))
+							.setIcon("file-signature")
 							.onClick(() => {
-								this.createNewThread();
+								new ChangeThreadIdModal(this.app, this.plugin, node.major, (oldMajor, newMajor) => {
+									if (this.collapsedThreads.has(oldMajor)) {
+										this.collapsedThreads.delete(oldMajor);
+										this.collapsedThreads.add(newMajor);
+									}
+									this.renderOutline();
+								}).open();
 							});
 					});
 
@@ -529,49 +536,48 @@ export class FolgezettelView extends ItemView {
 				evt.preventDefault();
 
 				const targetBranchId = getNextBranchId(node.id, existingIds);
-				const nextSibling = getNextSiblingId(node.id);
-				const canContinueThread = nextSibling !== null && !existingIds.has(nextSibling.toLowerCase());
+				const fortsetzungId = getFortsetzungId(node);
+				const canFortsetzung = fortsetzungId !== null && !existingIds.has(fortsetzungId.toLowerCase());
 
 				const menu = new Menu();
 
-				// Option 1: Asignar rama
-				menu.addItem((item) => {
-					item.setTitle(t("assignNoteBranchMenu", targetBranchId))
-						.setIcon("git-branch")
-						.onClick(() => {
-							assignBranchNote(this.app, targetBranchId, () => this.renderOutline());
-						});
-				});
+				// Option 1 & 2: Fortsetzung (direct continuation at same level, if available)
+				if (canFortsetzung && fortsetzungId) {
+					menu.addItem((item) => {
+						item.setTitle(t("continueThreadMenu", fortsetzungId))
+							.setIcon("arrow-down")
+							.onClick(() => {
+								createBranchNote(this.app, fortsetzungId, () => this.renderOutline());
+							});
+					});
 
-				// Option 2: Crear rama
+					menu.addItem((item) => {
+						item.setTitle(t("assignNoteSiblingMenu", fortsetzungId))
+							.setIcon("arrow-down")
+							.onClick(() => {
+								assignBranchNote(this.app, fortsetzungId, () => this.renderOutline());
+							});
+					});
+
+					menu.addSeparator();
+				}
+
+				// Option 3 & 4: Verzweigung (branching / intercalation with alternating symbol)
 				menu.addItem((item) => {
 					item.setTitle(t("createNoteBranchMenu", targetBranchId))
-						.setIcon("plus")
+						.setIcon("arrow-down-right")
 						.onClick(() => {
 							createBranchNote(this.app, targetBranchId, () => this.renderOutline());
 						});
 				});
 
-				// Option 3: Continuar hilo principal (sólo si está disponible en la columna vertebral)
-				if (canContinueThread && nextSibling) {
-					menu.addSeparator();
-
-					menu.addItem((item) => {
-						item.setTitle(t("assignNoteSiblingMenu", nextSibling))
-							.setIcon("arrow-down-right")
-							.onClick(() => {
-								assignBranchNote(this.app, nextSibling, () => this.renderOutline());
-							});
-					});
-
-					menu.addItem((item) => {
-						item.setTitle(t("continueThreadMenu", nextSibling))
-							.setIcon("arrow-down")
-							.onClick(() => {
-								createBranchNote(this.app, nextSibling, () => this.renderOutline());
-							});
-					});
-				}
+				menu.addItem((item) => {
+					item.setTitle(t("assignNoteBranchMenu", targetBranchId))
+						.setIcon("arrow-down-right")
+						.onClick(() => {
+							assignBranchNote(this.app, targetBranchId, () => this.renderOutline());
+						});
+				});
 
 				menu.showAtMouseEvent(evt);
 			});
